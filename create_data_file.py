@@ -1,5 +1,3 @@
-# %%
-
 import pandas as pd
 import os
 import glob
@@ -43,5 +41,3 @@ dgroup = '/Users/kathy-ann/thesis/train/cd_meta_data.txt'
 dir = '/Users/kathy-ann/thesis/chunked/'
 output = '/Users/kathy-ann/thesis/data2.tsv'
 make_data_file(cgroup, dgroup, dir, output)
-
-# %%
