@@ -2,8 +2,8 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
+from sklearn.model_selection import KFold
 
 
 # %%
@@ -33,86 +33,147 @@ class biLSTM(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.fc1 = nn.Linear(hidden_size * 2, hidden_size * 2)
         self.fc2 = nn.Linear(hidden_size * 2, label_size)
-        self.act = nn.BCEWithLogitsLoss() 
+        self.act = nn.Sigmoid() 
 
         
     def forward(self, x):
         # ht = hidden state, ct = cell state
        out, (ht, ct) = self.lstm(x) 
+
+       # OPTION 1
        out = self.fc1(out[:, -1, :])
        out = self.relu(out)
        out = self.droput(out)
 
        # OPTION 2
-       # out = torch.cat((out[:, -1, :self.hidden_size].squeeze(1), out[:, 0, self.hidden_size:].squeeze(1)), dim=1)
-       # out = self.fc1(out)
+       # cat1 = torch.cat((out[:, -1, :self.hidden_size].squeeze(1), out[:, 0, self.hidden_size:].squeeze(1)), dim=1)
+       # out = self.fc1(cat1)
+       # out = self.relu(out)
+       # out = self.droput(out)
 
        # OPTION 3
-       # ht = torch.cat((ht[-2, :, :], ht[-1, :, :]), dim=1)
-       # out = fc1(ht)
+       # cat2 = torch.cat((ht[-2, :, :], ht[-1, :, :]), dim=1)
+       # out = fc1(cat2)
+       # out = self.relu(out)
+       # out = self.droput(out)
 
        # THEN
        out = self.fc2(out)
        out = self.relu(out)
        out = self.droput(out)
+       # out = self.act(out)
        return out
 
 # %%
-# Load Data
+# K-fold Cross Validation
+def reset_weights(m):
+  '''
+    Try resetting model weights to avoid
+    weight leakage.
+  '''
+  for layer in m.children():
+   if hasattr(layer, 'reset_parameters'):
+    print(f'Reset trainable parameters of layer = {layer}')
+    layer.reset_parameters()
+
+
+# %%
+if __name__ == '__main__':
+  
+  # Configuration options
+  k_folds = 5
+  num_epochs = 1
+  loss_function = nn.BCEWithLogitsLoss()
+  
+  # For fold results
+  results = {}
+  
+  # Set fixed random number seed
+  torch.manual_seed(42)
+
+  # Define the K-fold Cross Validator
+  kfold = KFold(n_splits=k_folds, shuffle=True)
+
+  # Start print
+  print('--------------------------------')
+
+  # %%
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # %%
 # Initialize network
-model = biLSTM(input_size, hidden_size, num_layers, num_classes).to(device)
-# Loss and optimizer
-criterion = nn.CrossEntropyLoss()
+model = biLSTM(input_size, hidden_size, num_layers, label_size, dropout).to(device)
+criterion = nn.BCEWithLogitsLoss
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
 # %%
-for epoch in range(num_epochs):
-    for batch_idx, (data, targets) in enumerate(train_loader):
-        # Get data to cuda if possible
-        data = data.to(device=device).squeeze(1)
-        targets = targets.to(device=device)
+def binary_accuracy(prediction, target):
+    preds = torch.round(prediction) # round to the nearest integer
+    correct = (preds == target).float()
+    accuracy = correct.sum()/len(correct)
+    return accuracy
 
-        # forward
-        scores = model(data)
-        loss = criterion(scores, targets)
-
-        # backward
-        optimizer.zero_grad()
-        loss.backward()
-
-        # gradient descent or adam step
-        optimizer.step()
-
-def check_accuracy(loader, model):
-    if loader.dataset.train:
-        print("Checking accuracy on training data")
-    else:
-        print("Checking accuracy on test data")
-
-    num_correct = 0
-    num_samples = 0
-    model.eval()
-
-    with torch.no_grad():
-        for x, y in loader:
-            x = x.to(device=device).squeeze(1)
-            y = y.to(device=device)
-
-            scores = model(x)
-            _, predictions = scores.max(1)
-            num_correct += (predictions == y).sum()
-            num_samples += predictions.size(0)
-
-        print(
-            f"Got {num_correct} / {num_samples} with accuracy  \
-              {float(num_correct)/float(num_samples)*100:.2f}"
-        )
-
+def train(model, train_loader,loss_fn, optimiser, device):
+    train_epoch_loss = 0
+    train_epoch_acc = 0
     model.train()
+    for input, target in train_loader:
+        optimiser.zero_grad() # reset gradients for every batch
+        input, target = input.to(device, dtype=torch.float), target.to(device, dtype=torch.float)
+        target = target.unsqueeze(1)
+        prediction = model(input)
+        train_loss = loss_fn(prediction, target)
+        train_acc = binary_accuracy(prediction, target)
+        train_loss.backward() # backpropogate
+        optimiser.step() # update weights
+        train_epoch_loss += train_loss.item()
+        train_epoch_acc += train_acc.item()
+    return train_epoch_loss/len(train_loader), train_epoch_acc/len(train_loader)
 
-# %%
-check_accuracy(train_loader, model)
-check_accuracy(test_loader, model)
+
+def evaluate(model, val_loader, loss_fn, device):
+    val_epoch_loss = 0
+    val_epoch_acc = 0
+    model.eval() # deactivate dropout during evaluation
+    with torch.no_grad(): #deactivate autograd
+        for input, target in val_loader:
+            input, target = input.to(device, dtype=torch.float), target.to(device, dtype=torch.float)
+            target = target.unsqueeze(1)
+            prediction = model(input)
+            val_loss = loss_fn(prediction, target)
+            val_acc = binary_accuracy(prediction, target)
+            val_epoch_loss += val_loss.item()
+            val_epoch_acc += val_acc.item()
+    return val_epoch_loss/len(val_loader), val_epoch_acc/len(val_loader)
+
+
+def fit(model, train_loader, val_loader, loss_fn, optimiser, device, epochs):
+    valid_loss_min = np.Inf
+    for epoch in range (epochs):
+        train_loss, train_acc = train(model, train_loader, loss_fn, optimiser, device) #train model
+        valid_loss, valid_acc = evaluate(model, val_loader, loss_fn, device) # evaluate on validation set
+        if valid_loss < valid_loss_min:
+            valid_loss_min = valid_loss
+            torch.save(model.state_dict(), f"{path_root}/newCNNlld.pth")
+        print(f'Epoch {epoch:03}: | Train Loss: {train_loss:.3f} | Val Loss: {valid_loss:.3f} | Train Acc: {train_acc*100:.2f}% | Val Acc: {valid_acc*100:.2f}%')
+    return
