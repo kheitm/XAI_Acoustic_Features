@@ -79,6 +79,8 @@ def reset_weights(m):
 
 # %%
 if __name__ == '__main__':
+  # Data
+  dataset = '/Users/kathy-ann/thesis_old/lld_feats.json' 
   
   # Configuration options
   k_folds = 5
@@ -98,9 +100,47 @@ if __name__ == '__main__':
   print('--------------------------------')
 
   # %%
+
+  # K-fold Cross Validation model evaluation
+for fold, (train_ids, test_ids) in enumerate(kfold.split(dataset)):
+    
+    # Print
+    print(f'FOLD {fold}')
+    print('--------------------------------')
+    
+    # Sample elements randomly from a given list of ids, no replacement.
+    train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
+    test_subsampler = torch.utils.data.SubsetRandomSampler(test_ids)
+    
+    # Define data loaders for training and testing data in this fold
+    trainloader = torch.utils.data.DataLoader(dataset, batch_size=10, sampler=train_subsampler)
+    testloader = torch.utils.data.DataLoader(dataset, batch_size=10, sampler=test_subsampler)
   
+    # Init the neural network
+    model = biLSTM()
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-
+# Run the training loop for defined number of epochs
+    for epoch in range(0, num_epochs):
+      print(f'Starting epoch {epoch+1}')
+      current_loss = 0.0
+      # Iterate over the DataLoader for training data
+      for i, data in enumerate(trainloader, 0):
+        inputs, targets = data
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        loss = loss_function(outputs, targets)
+        loss.backward()
+        optimizer.step()
+        
+        # Print statistics
+        current_loss += loss.item()
+        if i % 500 == 499:
+            print('Loss after mini-batch %5d: %.3f' % (i + 1, current_loss / 500))
+            current_loss = 0.0
+            
+    # Process is complete.
+    print('Training process has finished. Saving trained model.')
 
 
 

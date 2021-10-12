@@ -5,23 +5,19 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from sklearn.model_selection import KFold
 
+# %%
+def dataloder(dataset):
+    for fold, (train_ids, test_ids) in enumerate(kfold.split(dataset)):
+        print(f'FOLD {fold}')
+        print('--------------------------------')
+        train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
+        test_subsampler = torch.utils.data.SubsetRandomSampler(test_ids)
+        trainloader = torch.utils.data.DataLoader(dataset, batch_size=10, sampler=train_subsampler)
+        testloader = torch.utils.data.DataLoader(dataset, batch_size=10, sampler=test_subsampler)
+    return trainloader, testloader
+
 
 # %%
-# Set device and hyperparameters
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-input_size = 25 # #number of features in input
-num_layers = 2
-hidden_size = 25 #number of features in hidden state
-label_size = 1
-learning_rate = 0.001
-batch_size = 16
-num_epochs = 2
-dropout = 0.5
-n_splits = 5 # Number of K-fold Splits
-SEED = 42
-
-# %%
-# Create a bidirectional LSTM
 class biLSTM(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, label_size, dropout):
         super(biLSTM, self).__init__()
@@ -65,71 +61,32 @@ class biLSTM(nn.Module):
        return out
 
 # %%
-# K-fold Cross Validation
 def reset_weights(m):
-  '''
-    Try resetting model weights to avoid
-    weight leakage.
-  '''
+  # reset model weights to avoid weight leakage
   for layer in m.children():
-   if hasattr(layer, 'reset_parameters'):
-    print(f'Reset trainable parameters of layer = {layer}')
-    layer.reset_parameters()
+    if hasattr(layer, 'reset_parameters'):
+        print(f'Reset trainable parameters of layer = {layer}')
+        layer.reset_parameters()
 
+
+def binary_accuracy(prediction, target):
+    preds = torch.round(prediction) # round to the nearest integer
+    correct = (preds == target).float()
+    accuracy = correct.sum()/len(correct)
+    return accuracy
 
 # %%
-if __name__ == '__main__':
-  # Data
-  dataset = '/Users/kathy-ann/thesis_old/lld_feats.json' 
-  
-  # Configuration options
-  k_folds = 5
-  num_epochs = 1
-  loss_function = nn.BCEWithLogitsLoss()
-  
-  # For fold results
-  results = {}
-  
-  # Set fixed random number seed
-  torch.manual_seed(42)
-
-  # Define the K-fold Cross Validator
-  kfold = KFold(n_splits=k_folds, shuffle=True)
-
-  # Start print
-  print('--------------------------------')
-
-  # %%
-
-  # K-fold Cross Validation model evaluation
-for fold, (train_ids, test_ids) in enumerate(kfold.split(dataset)):
-    
-    # Print
-    print(f'FOLD {fold}')
-    print('--------------------------------')
-    
-    # Sample elements randomly from a given list of ids, no replacement.
-    train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
-    test_subsampler = torch.utils.data.SubsetRandomSampler(test_ids)
-    
-    # Define data loaders for training and testing data in this fold
-    trainloader = torch.utils.data.DataLoader(dataset, batch_size=10, sampler=train_subsampler)
-    testloader = torch.utils.data.DataLoader(dataset, batch_size=10, sampler=test_subsampler)
-  
-    # Init the neural network
-    model = biLSTM()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
-# Run the training loop for defined number of epochs
+def train(model, trainloader, loss_fn, optimizer, device):
     for epoch in range(0, num_epochs):
       print(f'Starting epoch {epoch+1}')
       current_loss = 0.0
-      # Iterate over the DataLoader for training data
       for i, data in enumerate(trainloader, 0):
         inputs, targets = data
+        inputs, targets = inputs.to(device, dtype=torch.float), targets.to(device, dtype=torch.float)
+        target = target.unsqueeze(1)
         optimizer.zero_grad()
-        outputs = model(inputs)
-        loss = loss_function(outputs, targets)
+        prediction = model(inputs)
+        loss = loss_fn(prediction, targets)
         loss.backward()
         optimizer.step()
         
@@ -142,19 +99,42 @@ for fold, (train_ids, test_ids) in enumerate(kfold.split(dataset)):
     # Process is complete.
     print('Training process has finished. Saving trained model.')
 
+        # train_acc = binary_accuracy(prediction, target)
+        # train_loss.backward() # backpropogate
+        # optimiser.step() # update weights
+        # train_epoch_loss += train_loss.item()
+        # train_epoch_acc += train_acc.item()
+
+
 
 # %%
-# Initialize network
-model = biLSTM(input_size, hidden_size, num_layers, label_size, dropout).to(device)
-criterion = nn.BCEWithLogitsLoss
-optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+if __name__ == '__main__':
+    dataset = '/Users/kathy-ann/thesis_old/lld_feats.json' 
+    k_folds = 5
+    num_epochs = 1
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    input_size = 25 # #number of features in input
+    num_layers = 2
+    hidden_size = 25 #number of features in hidden state
+    label_size = 1
+    learning_rate = 0.001
+    batch_size = 16
+    dropout = 0.5
+    loss_fn = nn.BCEWithLogitsLoss()
+    results = {} # For fold results
+    torch.manual_seed(42)
+    kfold = KFold(n_splits=k_folds, shuffle=True)
+    model = biLSTM(input_size, hidden_size, num_layers, label_size, dropout).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    # Start print
+    print('--------------------------------')
 
 # %%
-def binary_accuracy(prediction, target):
-    preds = torch.round(prediction) # round to the nearest integer
-    correct = (preds == target).float()
-    accuracy = correct.sum()/len(correct)
-    return accuracy
+
+
+
+# %%
 
 def train(model, train_loader,loss_fn, optimiser, device):
     train_epoch_loss = 0
