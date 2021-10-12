@@ -1,1 +1,1 @@
-Acoustic Features in ALzheimer's Dementia
+Acoustic Features in Alzheimer's Dementia
