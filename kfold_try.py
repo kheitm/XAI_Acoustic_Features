@@ -6,18 +6,16 @@ from torch.utils.data import DataLoader
 from sklearn.model_selection import KFold
 
 # %%
-def dataloder(dataset):
-    for fold, (train_ids, test_ids) in enumerate(kfold.split(dataset)):
+def dataloader(dataset):
+    for fold, (train_ids, valid_ids) in enumerate(kfold.split(dataset)):
         print(f'FOLD {fold}')
         print('--------------------------------')
         train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
-        test_subsampler = torch.utils.data.SubsetRandomSampler(test_ids)
+        valid_subsampler = torch.utils.data.SubsetRandomSampler(valid_ids)
         trainloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=train_subsampler)
-        testloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=test_subsampler)
-    return trainloader, testloader
+        validloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=valid_subsampler)
+    return trainloader, validloader
 
-
-# %%
 class biLSTM(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, label_size, dropout):
         super(biLSTM, self).__init__()
@@ -60,7 +58,7 @@ class biLSTM(nn.Module):
        # out = self.act(out)
        return out
 
-# %%
+
 def reset_weights(m):
   # reset model weights to avoid weight leakage
   for layer in m.children():
@@ -75,14 +73,11 @@ def binary_accuracy(prediction, target):
     accuracy = correct.sum()/len(correct)
     return accuracy
 
-# %%
+
 def train_epoch(model, trainloader, loss_fn, optimizer, device):
     train_loss, train_acc = 0.0, 0
     model.train()
-    for epoch in range(0, num_epochs):
-      print(f'Starting epoch {epoch+1}')
-      for i, data in enumerate(trainloader, 0):
-        inputs, targets = data
+    for inputs, targets in trainloader:
         inputs, targets = inputs.to(device, dtype=torch.float), targets.to(device, dtype=torch.float)
         targets = targets.unsqueeze(1)
         optimizer.zero_grad()
@@ -93,13 +88,14 @@ def train_epoch(model, trainloader, loss_fn, optimizer, device):
         optimizer.step()
         train_loss += train_loss.item()
         train_acc += accuracy.item()
-        return train_loss/len(trainloader), train_acc/len(trainloader)
+        # agg_train_loss = train_loss/len(trainloader)
+        # agg_train_acc = train_acc/len(trainloader)
+        return train_loss, train_acc
             
-def valid_epoch(model, testloader, loss_fn, device):
+def valid_epoch(model, validloader, loss_fn, device):
     valid_loss, valid_acc = 0.0, 0
     model.eval()
-    for i, data in enumerate(testloader, 0):
-        inputs, targets = data
+    for inputs, targets in validloader:
         inputs, targets = inputs.to(device, dtype=torch.float), targets.to(device, dtype=torch.float)
         targets = targets.unsqueeze(1)
         prediction = model(inputs)
@@ -107,8 +103,9 @@ def valid_epoch(model, testloader, loss_fn, device):
         accuracy =  binary_accuracy(prediction, targets)
         valid_loss += loss.item()
         valid_acc += accuracy.item()
-        return valid_loss/len(testloader), valid_acc/len(testloader)
-
+        # agg_valid_loss = valid_loss/len(validloader)
+        # agg_valid_acc = valid_acc/len(validloader)
+        return valid_loss, valid_acc
 
 
 
@@ -133,19 +130,34 @@ if __name__ == '__main__':
     model = biLSTM(input_size, hidden_size, num_layers, label_size, dropout).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-    # Start print
-    print('--------------------------------')
+    for fold, (train_ids, valid_ids) in enumerate(kfold.split(dataset)):
+        print(f'FOLD {fold}')
+        print('--------------------------------')
+        train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
+        valid_subsampler = torch.utils.data.SubsetRandomSampler(valid_ids)
+        trainloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=train_subsampler)
+        validloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=valid_subsampler)
+        history = {'train_loss': [], 'valid_loss': [],'train_acc':[],'valid_acc':[]}
 
-# %%
+        for epoch in range(num_epochs):
+            train_loss, train_acc = train_epoch(model, device, trainloader,loss_fn, optimizer)
+            valid_loss, valid_acc = valid_epoch(model, device, validloader, loss_fn) 
+
+            epoch_train_loss = train_loss / len(trainloader.sampler)
+            epoch_train_acc = train_acc / len(trainloader.sampler) * 100
+            epoch_valid_loss = valid_loss / len(validloader.sampler)
+            epoch_valid_acc = valid_acc / len(validloader.sampler) * 100
+
+            print("Epoch:{}/{} Training Loss:{:.3f}  Validation Loss:{:.3f} Training Accuracy {:.2f} \
+                %  Validation Accuracy {:.2f} %".format(epoch + 1, num_epochs, epoch_train_loss, epoch_valid_loss, \
+                epoch_train_acc, epoch_valid_acc))
+
+                
 
 
-def fit(model, train_loader, val_loader, loss_fn, optimiser, device, epochs):
-    valid_loss_min = np.Inf
-    for epoch in range (epochs):
-        train_loss, train_acc = train(model, train_loader, loss_fn, optimiser, device) #train model
-        valid_loss, valid_acc = evaluate(model, val_loader, loss_fn, device) # evaluate on validation set
-        if valid_loss < valid_loss_min:
-            valid_loss_min = valid_loss
-            torch.save(model.state_dict(), f"{path_root}/newCNNlld.pth")
-        print(f'Epoch {epoch:03}: | Train Loss: {train_loss:.3f} | Val Loss: {valid_loss:.3f} | Train Acc: {train_acc*100:.2f}% | Val Acc: {valid_acc*100:.2f}%')
-    return
+                                                                                                             
+                                                                                                             
+                                                                                                             
+                                                                                                             
+                                                                                                             
+
