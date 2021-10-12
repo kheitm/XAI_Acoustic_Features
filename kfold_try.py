@@ -95,64 +95,75 @@ def train_epoch(model, trainloader, loss_fn, optimizer, device):
 def valid_epoch(model, validloader, loss_fn, device):
     valid_loss, valid_acc = 0.0, 0
     model.eval()
-    for inputs, targets in validloader:
-        inputs, targets = inputs.to(device, dtype=torch.float), targets.to(device, dtype=torch.float)
-        targets = targets.unsqueeze(1)
-        prediction = model(inputs)
-        loss = loss_fn(prediction,targets)
-        accuracy =  binary_accuracy(prediction, targets)
-        valid_loss += loss.item()
-        valid_acc += accuracy.item()
-        # agg_valid_loss = valid_loss/len(validloader)
-        # agg_valid_acc = valid_acc/len(validloader)
-        return valid_loss, valid_acc
-
+    with torch.no_grad():
+        for inputs, targets in validloader:
+            inputs, targets = inputs.to(device, dtype=torch.float), targets.to(device, dtype=torch.float)
+            targets = targets.unsqueeze(1)
+            prediction = model(inputs)
+            loss = loss_fn(prediction,targets)
+            accuracy =  binary_accuracy(prediction, targets)
+            valid_loss += loss.item()
+            valid_acc += accuracy.item()
+            # agg_valid_loss = valid_loss/len(validloader)
+            # agg_valid_acc = valid_acc/len(validloader)
+            return valid_loss, valid_acc
 
 
 # %%
-if __name__ == '__main__':
-    dataset = '/Users/kathy-ann/thesis_old/lld_feats.json' 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    k_folds = 5
-    num_epochs = 1
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    input_size = 25 # #number of features in input
-    num_layers = 2
-    hidden_size = 25 #number of features in hidden state
-    label_size = 1
-    learning_rate = 0.001
-    batch_size = 10
-    dropout = 0.5
-    loss_fn = nn.BCEWithLogitsLoss()
-    results = {} # For fold results
-    torch.manual_seed(42)
-    kfold = KFold(n_splits=k_folds, shuffle=True)
-    model = biLSTM(input_size, hidden_size, num_layers, label_size, dropout).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+dataset = '/Users/kathy-ann/thesis_old/lld_feats.json' 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+k_folds = 5
+num_epochs = 1
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+input_size = 25 # #number of features in input
+num_layers = 2
+hidden_size = 25 #number of features in hidden state
+label_size = 1
+learning_rate = 0.001
+batch_size = 10
+dropout = 0.5
+loss_fn = nn.BCEWithLogitsLoss()
+results = {} # For fold results
+torch.manual_seed(42)
+kfold = KFold(n_splits=k_folds, shuffle=True, random_state=42)
+kfold_dict = {}
+model = biLSTM(input_size, hidden_size, num_layers, label_size, dropout).to(device)
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-    for fold, (train_ids, valid_ids) in enumerate(kfold.split(dataset)):
-        print(f'FOLD {fold}')
-        print('--------------------------------')
-        train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
-        valid_subsampler = torch.utils.data.SubsetRandomSampler(valid_ids)
-        trainloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=train_subsampler)
-        validloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=valid_subsampler)
-        history = {'train_loss': [], 'valid_loss': [],'train_acc':[],'valid_acc':[]}
+for fold, (train_ids, valid_ids) in enumerate(kfold.split(dataset)):
+    print(f'FOLD {fold}')
+    print('--------------------------------')
+    train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
+    valid_subsampler = torch.utils.data.SubsetRandomSampler(valid_ids)
+    trainloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=train_subsampler)
+    validloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=valid_subsampler)
 
-        for epoch in range(num_epochs):
-            train_loss, train_acc = train_epoch(model, device, trainloader,loss_fn, optimizer)
-            valid_loss, valid_acc = valid_epoch(model, device, validloader, loss_fn) 
+    model.apply(reset_weights)
+    history = {'train_loss': [], 'valid_loss': [],'train_acc':[],'valid_acc':[]}
 
-            epoch_train_loss = train_loss / len(trainloader.sampler)
-            epoch_train_acc = train_acc / len(trainloader.sampler) * 100
-            epoch_valid_loss = valid_loss / len(validloader.sampler)
-            epoch_valid_acc = valid_acc / len(validloader.sampler) * 100
+    for epoch in range(num_epochs):
+        train_loss, train_acc = train_epoch(model, device, trainloader,loss_fn, optimizer)
+        valid_loss, valid_acc = valid_epoch(model, device, validloader, loss_fn) 
 
-            print("Epoch:{}/{} Training Loss:{:.3f}  Validation Loss:{:.3f} Training Accuracy {:.2f} \
-                %  Validation Accuracy {:.2f} %".format(epoch + 1, num_epochs, epoch_train_loss, epoch_valid_loss, \
-                epoch_train_acc, epoch_valid_acc))
+        epoch_train_loss = train_loss / len(trainloader.sampler)
+        epoch_train_acc = train_acc / len(trainloader.sampler) * 100
+        epoch_valid_loss = valid_loss / len(validloader.sampler)
+        epoch_valid_acc = valid_acc / len(validloader.sampler) * 100
 
-                
+        print("Epoch:{}/{} Training Loss:{:.3f}  Validation Loss:{:.3f} Training Accuracy {:.2f} \
+            %  Validation Accuracy {:.2f} %".format(epoch + 1, num_epochs, epoch_train_loss, epoch_valid_loss, \
+            epoch_train_acc, epoch_valid_acc))
+        
+        history['train_loss'].append(train_loss)
+        history['valid_loss'].append(valid_loss)
+        history['train_acc'].append(train_acc)
+        history['valid_acc'].append(valid_acc)
+        kfold_dict['fold{}'.format(fold+1)] = history 
+
+        save_path = f'./model-fold-{fold}.pth'
+        torch.save(model.state_dict(), save_path)
+
+torch.save(model,'k_cross_CNN.pt')  
 
 
                                                                                                              
