@@ -12,8 +12,8 @@ def dataloder(dataset):
         print('--------------------------------')
         train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
         test_subsampler = torch.utils.data.SubsetRandomSampler(test_ids)
-        trainloader = torch.utils.data.DataLoader(dataset, batch_size=10, sampler=train_subsampler)
-        testloader = torch.utils.data.DataLoader(dataset, batch_size=10, sampler=test_subsampler)
+        trainloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=train_subsampler)
+        testloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=test_subsampler)
     return trainloader, testloader
 
 
@@ -76,40 +76,46 @@ def binary_accuracy(prediction, target):
     return accuracy
 
 # %%
-def train(model, trainloader, loss_fn, optimizer, device):
+def train_epoch(model, trainloader, loss_fn, optimizer, device):
+    train_loss, train_acc = 0.0, 0
+    model.train()
     for epoch in range(0, num_epochs):
       print(f'Starting epoch {epoch+1}')
-      current_loss = 0.0
       for i, data in enumerate(trainloader, 0):
         inputs, targets = data
         inputs, targets = inputs.to(device, dtype=torch.float), targets.to(device, dtype=torch.float)
-        target = target.unsqueeze(1)
+        targets = targets.unsqueeze(1)
         optimizer.zero_grad()
         prediction = model(inputs)
         loss = loss_fn(prediction, targets)
+        accuracy = binary_accuracy(prediction, targets)
         loss.backward()
         optimizer.step()
-        
-        # Print statistics
-        current_loss += loss.item()
-        if i % 500 == 499:
-            print('Loss after mini-batch %5d: %.3f' % (i + 1, current_loss / 500))
-            current_loss = 0.0
+        train_loss += train_loss.item()
+        train_acc += accuracy.item()
+        return train_loss/len(trainloader), train_acc/len(trainloader)
             
-    # Process is complete.
-    print('Training process has finished. Saving trained model.')
+def valid_epoch(model, testloader, loss_fn, device):
+    valid_loss, valid_acc = 0.0, 0
+    model.eval()
+    for i, data in enumerate(testloader, 0):
+        inputs, targets = data
+        inputs, targets = inputs.to(device, dtype=torch.float), targets.to(device, dtype=torch.float)
+        targets = targets.unsqueeze(1)
+        prediction = model(inputs)
+        loss = loss_fn(prediction,targets)
+        accuracy =  binary_accuracy(prediction, targets)
+        valid_loss += loss.item()
+        valid_acc += accuracy.item()
+        return valid_loss/len(testloader), valid_acc/len(testloader)
 
-        # train_acc = binary_accuracy(prediction, target)
-        # train_loss.backward() # backpropogate
-        # optimiser.step() # update weights
-        # train_epoch_loss += train_loss.item()
-        # train_epoch_acc += train_acc.item()
 
 
 
 # %%
 if __name__ == '__main__':
     dataset = '/Users/kathy-ann/thesis_old/lld_feats.json' 
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     k_folds = 5
     num_epochs = 1
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -118,7 +124,7 @@ if __name__ == '__main__':
     hidden_size = 25 #number of features in hidden state
     label_size = 1
     learning_rate = 0.001
-    batch_size = 16
+    batch_size = 10
     dropout = 0.5
     loss_fn = nn.BCEWithLogitsLoss()
     results = {} # For fold results
@@ -131,43 +137,6 @@ if __name__ == '__main__':
     print('--------------------------------')
 
 # %%
-
-
-
-# %%
-
-def train(model, train_loader,loss_fn, optimiser, device):
-    train_epoch_loss = 0
-    train_epoch_acc = 0
-    model.train()
-    for input, target in train_loader:
-        optimiser.zero_grad() # reset gradients for every batch
-        input, target = input.to(device, dtype=torch.float), target.to(device, dtype=torch.float)
-        target = target.unsqueeze(1)
-        prediction = model(input)
-        train_loss = loss_fn(prediction, target)
-        train_acc = binary_accuracy(prediction, target)
-        train_loss.backward() # backpropogate
-        optimiser.step() # update weights
-        train_epoch_loss += train_loss.item()
-        train_epoch_acc += train_acc.item()
-    return train_epoch_loss/len(train_loader), train_epoch_acc/len(train_loader)
-
-
-def evaluate(model, val_loader, loss_fn, device):
-    val_epoch_loss = 0
-    val_epoch_acc = 0
-    model.eval() # deactivate dropout during evaluation
-    with torch.no_grad(): #deactivate autograd
-        for input, target in val_loader:
-            input, target = input.to(device, dtype=torch.float), target.to(device, dtype=torch.float)
-            target = target.unsqueeze(1)
-            prediction = model(input)
-            val_loss = loss_fn(prediction, target)
-            val_acc = binary_accuracy(prediction, target)
-            val_epoch_loss += val_loss.item()
-            val_epoch_acc += val_acc.item()
-    return val_epoch_loss/len(val_loader), val_epoch_acc/len(val_loader)
 
 
 def fit(model, train_loader, val_loader, loss_fn, optimiser, device, epochs):
