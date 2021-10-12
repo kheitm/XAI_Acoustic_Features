@@ -12,38 +12,50 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 input_size = 25 # #number of features in input
 num_layers = 2
 hidden_size = 25 #number of features in hidden state
-num_classes = 2
+label_size = 1
 learning_rate = 0.001
 batch_size = 16
 num_epochs = 2
+dropout = 0.5
 n_splits = 5 # Number of K-fold Splits
 SEED = 42
 
 # %%
 # Create a bidirectional LSTM
 class biLSTM(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, num_classes):
+    def __init__(self, input_size, hidden_size, num_layers, label_size, dropout):
         super(biLSTM, self).__init__()
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        self.lstm = nn.LSTM(
-            input_size, hidden_size, num_layers, batch_first=True, bidirectional=True)
-        self.fc = nn.Linear(hidden_size * 2, num_classes)
-
-    def forward(self, x):
+        # self.hidden_size = hidden_size
+        # self.num_layers = num_layers  #stacked LSTM
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, bidirectional=True)
         # multiply by 2 to extend tensor to include info from backward and forward direction
-        # define initial hidden state
-        # x.size.(o) is the batch size/number of examples
-        h0 = torch.zeros(self.num_layers * 2, x.size(0), self.hidden_size).to(device)
-        # define initial cell state
-        c0 = torch.zeros(self.num_layers * 2, x.size(0), self.hidden_size).to(device)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
+        self.fc1 = nn.Linear(hidden_size * 2, hidden_size * 2)
+        self.fc2 = nn.Linear(hidden_size * 2, label_size)
+        self.act = nn.BCEWithLogitsLoss() 
 
-        # second output is a (hidden state, cell state)tuple which we do not use
-        out, _ = self.lstm(x, (h0, c0))
-        # this takes the last hidden state to send to the linear layer
-        out = self.fc(out[:, -1, :])
+        
+    def forward(self, x):
+        # ht = hidden state, ct = cell state
+       out, (ht, ct) = self.lstm(x) 
+       out = self.fc1(out[:, -1, :])
+       out = self.relu(out)
+       out = self.droput(out)
 
-        return out
+       # OPTION 2
+       # out = torch.cat((out[:, -1, :self.hidden_size].squeeze(1), out[:, 0, self.hidden_size:].squeeze(1)), dim=1)
+       # out = self.fc1(out)
+
+       # OPTION 3
+       # ht = torch.cat((ht[-2, :, :], ht[-1, :, :]), dim=1)
+       # out = fc1(ht)
+
+       # THEN
+       out = self.fc2(out)
+       out = self.relu(out)
+       out = self.droput(out)
+       return out
 
 # %%
 # Load Data
