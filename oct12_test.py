@@ -6,15 +6,33 @@ from torch.utils.data import DataLoader
 from sklearn.model_selection import KFold
 
 # %%
-def dataloader(dataset):
-    for fold, (train_ids, valid_ids) in enumerate(kfold.split(dataset)):
-        print(f'FOLD {fold}')
-        print('--------------------------------')
-        train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
-        valid_subsampler = torch.utils.data.SubsetRandomSampler(valid_ids)
-        trainloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=train_subsampler)
-        validloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=valid_subsampler)
-    return trainloader, validloader
+dataset = 'Users/kathy-ann/Desktop/thesis_october21/data/lld_feats_subset20.json'
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+k_folds = 5
+input_size = 25 # #number of features in input
+num_layers = 2
+hidden_size = 25 #number of features in hidden state
+label_size = 1
+learning_rate = 0.001
+batch_size = 10
+dropout = 0.5
+loss_fn = nn.BCEWithLogitsLoss()
+results = {} # For fold results
+torch.manual_seed(42)
+kfold = KFold(n_splits=k_folds, shuffle=True, random_state=42)
+kfold_dict = {}
+#model = biLSTM(input_size, hidden_size, num_layers, label_size, dropout).to(device)
+#optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+# %%
+for fold, (train_ids, valid_ids) in enumerate(kfold.split(dataset)):
+    # print(f'FOLD {fold}')
+    # print('--------------------------------')
+    train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
+    valid_subsampler = torch.utils.data.SubsetRandomSampler(valid_ids)
+    trainloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=train_subsampler)
+    validloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=valid_subsampler)
+
 
 # %%
 class biLSTM(nn.Module):
@@ -38,7 +56,7 @@ class biLSTM(nn.Module):
        # OPTION 1
        out = self.fc1(out[:, -1, :])
        out = self.relu(out)
-       out = self.droput(out)
+       out = self.dropout(out)
 
        # OPTION 2
        # cat1 = torch.cat((out[:, -1, :self.hidden_size].squeeze(1), out[:, 0, self.hidden_size:].squeeze(1)), dim=1)
@@ -55,7 +73,7 @@ class biLSTM(nn.Module):
        # THEN
        out = self.fc2(out)
        out = self.relu(out)
-       out = self.droput(out)
+       out = self.dropout(out)
        # out = self.act(out)
        return out
 
@@ -114,8 +132,6 @@ def valid_epoch(model, validloader, loss_fn, device):
 dataset = '/Users/kathy-ann/thesis_old/lld_feats.json' 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 k_folds = 5
-num_epochs = 1
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 input_size = 25 # #number of features in input
 num_layers = 2
 hidden_size = 25 #number of features in hidden state

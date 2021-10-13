@@ -1,20 +1,13 @@
 # %%
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
 import torch.optim as optim
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader, random_split, SubsetRandomSampler
 from sklearn.model_selection import KFold
+import numpy as np
 
 # %%
-def dataloader(dataset):
-    for fold, (train_ids, valid_ids) in enumerate(kfold.split(dataset)):
-        print(f'FOLD {fold}')
-        print('--------------------------------')
-        train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
-        valid_subsampler = torch.utils.data.SubsetRandomSampler(valid_ids)
-        trainloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=train_subsampler)
-        validloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=valid_subsampler)
-    return trainloader, validloader
 
 class biLSTM(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, label_size, dropout):
@@ -27,36 +20,37 @@ class biLSTM(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.fc1 = nn.Linear(hidden_size * 2, hidden_size * 2)
         self.fc2 = nn.Linear(hidden_size * 2, label_size)
-        self.act = nn.Sigmoid() 
+        # self.act = nn.Sigmoid() 
 
         
     def forward(self, x):
         # ht = hidden state, ct = cell state
-       out, (ht, ct) = self.lstm(x) 
+        # out, (ht, ct) = self.lstm(x) 
+        out, _ = self.lstm(x) 
 
-       # OPTION 1
-       out = self.fc1(out[:, -1, :])
-       out = self.relu(out)
-       out = self.droput(out)
+        # OPTION 1
+        out = self.fc1(out[:, -1, :])
+        out = self.relu(out)
+        out = self.dropout(out)
 
-       # OPTION 2
-       # cat1 = torch.cat((out[:, -1, :self.hidden_size].squeeze(1), out[:, 0, self.hidden_size:].squeeze(1)), dim=1)
-       # out = self.fc1(cat1)
-       # out = self.relu(out)
-       # out = self.droput(out)
+        # OPTION 2
+        # cat1 = torch.cat((out[:, -1, :self.hidden_size].squeeze(1), out[:, 0, self.hidden_size:].squeeze(1)), dim=1)
+        # out = self.fc1(cat1)
+        # out = self.relu(out)
+        # out = self.droput(out)
 
-       # OPTION 3
-       # cat2 = torch.cat((ht[-2, :, :], ht[-1, :, :]), dim=1)
-       # out = fc1(cat2)
-       # out = self.relu(out)
-       # out = self.droput(out)
+        # OPTION 3
+        # cat2 = torch.cat((ht[-2, :, :], ht[-1, :, :]), dim=1)
+        # out = fc1(cat2)
+        # out = self.relu(out)
+        # out = self.droput(out)
 
-       # THEN
-       out = self.fc2(out)
-       out = self.relu(out)
-       out = self.droput(out)
-       # out = self.act(out)
-       return out
+        # THEN
+        out = self.fc2(out)
+        out = self.relu(out)
+        out = self.dropout(out)
+        # out = self.act(out)
+        return out
 
 
 def reset_weights(m):
@@ -110,7 +104,7 @@ def valid_epoch(model, validloader, loss_fn, device):
 
 
 # %%
-dataset = '/Users/kathy-ann/thesis_old/lld_feats.json' 
+dataset = 'Users/kathy-ann/Desktop/thesis_october21/data/lld_feats_subset20.json'
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 k_folds = 5
 num_epochs = 1
@@ -133,10 +127,10 @@ optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 for fold, (train_ids, valid_ids) in enumerate(kfold.split(dataset)):
     print(f'FOLD {fold}')
     print('--------------------------------')
-    train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
-    valid_subsampler = torch.utils.data.SubsetRandomSampler(valid_ids)
-    trainloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=train_subsampler)
-    validloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=valid_subsampler)
+    train_subsampler = SubsetRandomSampler(train_ids)
+    valid_subsampler = SubsetRandomSampler(valid_ids)
+    trainloader = DataLoader(dataset, batch_size=batch_size, sampler=train_subsampler)
+    validloader = DataLoader(dataset, batch_size=batch_size, sampler=valid_subsampler)
 
     model.apply(reset_weights)
     history = {'train_loss': [], 'valid_loss': [],'train_acc':[],'valid_acc':[]}
