@@ -80,7 +80,6 @@ class biLSTM(nn.Module):
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, bidirectional=True, dropout=0.3)
         self.attn = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=1)
         self.relu = nn.ReLU()
-        # self.dropout = nn.Dropout(dropout)
         self.fc1 = nn.Linear(hidden_size, hidden_size)
         self.fc2 = nn.Linear(hidden_size, label_size)
 
@@ -91,9 +90,7 @@ class biLSTM(nn.Module):
         out = out.mean(dim=0)
         out = self.fc1(out)
         out = self.relu(out)
-        # out = self.dropout(out)
         out = self.fc2(out)
-        # out = self.relu(out)
         return out
 # %%
 def train_epoch(model,device, trainloader, loss_fn, optimizer):
@@ -135,7 +132,7 @@ def fit(dataset,input_size, hidden_size, num_layers, label_size, dropout,
     mean_valid_accuracy =[]
     for fold, (train_ids, valid_ids) in enumerate(skf.split(dataset.data[1], dataset.data[0])):
         print(f'\n FOLD {fold + 1}')
-        print('--------------------------------------------------------------------------------------------------')
+        print('---------------------------------------------------------------------------')
         train_subsampler = SubsetRandomSampler(train_ids)
         valid_subsampler = SubsetRandomSampler(valid_ids)
         trainloader = DataLoader(dataset, batch_size=batch_size, sampler=train_subsampler)
@@ -147,7 +144,7 @@ def fit(dataset,input_size, hidden_size, num_layers, label_size, dropout,
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
         valid_loss_min = np.Inf 
-        early_stopping_iter = 300
+        early_stopping_iter = 100
         early_stopping_counter = 0
 
         valid_accuracy = []
@@ -181,8 +178,7 @@ def fit(dataset,input_size, hidden_size, num_layers, label_size, dropout,
     return valid_loss_min, print("\n\nMax Accuracy:\n Fold_1 = {:.2f}\n Fold_2 = {:.2f}\n Fold_3 = {:.2f}\n Fold_4 = {:.2f}\n Fold_5 = {:.2f}\n".format(max_valid_accuracy[0], 
                max_valid_accuracy[1], max_valid_accuracy[2], max_valid_accuracy[3], max_valid_accuracy[4])), \
                print("Mean Accuracy: \n Fold_1 = {:.2f}\n Fold_2 = {:.2f}\n Fold_3 = {:.2f}\n Fold_4 = {:.2f}\n Fold_5 = {:.2f}\n".format(max_valid_accuracy[0], \
-                   mean_valid_accuracy[1], mean_valid_accuracy[2], mean_valid_accuracy[3], mean_valid_accuracy[4])) 
-    # return valid_loss_min, print(max_valid_accuracy)
+                   mean_valid_accuracy[1], mean_valid_accuracy[2], mean_valid_accuracy[3], mean_valid_accuracy[4]))
 
 
 
@@ -190,14 +186,14 @@ def fit(dataset,input_size, hidden_size, num_layers, label_size, dropout,
 # SET MODEL HYPER-PARAMETERS
 torch.manual_seed(42)
 k_folds = 5
-num_epochs = 3
+num_epochs = 300
 input_size = 25 # #number of features in input
 num_layers = 2
 hidden_size = 25 #number of features in hidden state
 label_size = 1
 learning_rate = 0.001
 batch_size = 128
-dropout = 0.2
+dropout = 0.5
 loss_fn = nn.BCEWithLogitsLoss()
 skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
