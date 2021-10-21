@@ -165,7 +165,8 @@ def fit(dataset,input_size, hidden_size, num_layers, label_size, dropout,
 # SET MODEL HYPER-PARAMETERS
 torch.manual_seed(42)
 k_folds = 5
-num_epochs = 300
+# num_epochs = 300
+num_epochs = 2
 input_size = 25 # #number of features in input
 num_layers = 2
 hidden_size = 25 #number of features in hidden state
@@ -176,7 +177,7 @@ dropout = 0.5
 loss_fn = nn.BCEWithLogitsLoss()
 skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-filepath = '/mount/arbeitsdaten/thesis-dp-1/heitmekn/working/ad.json'
+filepath = '/Users/kathy-ann/ad.json'
 dataset = JSON_Dataset(filepath)
 fit(dataset,input_size, hidden_size, num_layers, label_size, dropout, 
         learning_rate, num_epochs,device, loss_fn, skf)
