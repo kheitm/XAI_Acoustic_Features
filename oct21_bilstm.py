@@ -11,6 +11,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader, SubsetRandomSampler
 from sklearn.model_selection import StratifiedKFold
 from copy import deepcopy
+from statistics import mean
 
 
 # %%
@@ -109,6 +110,7 @@ def valid_epoch(model, device, validloader, loss_fn):
 def fit(dataset,input_size, hidden_size, num_layers, label_size, dropout, 
         learning_rate, num_epochs,device, loss_fn, skf):
     max_valid_accuracy = []
+    mean_valid_accuracy =[]
     for fold, (train_ids, valid_ids) in enumerate(skf.split(dataset.data[1], dataset.data[0])):
         print(f'\n FOLD {fold + 1}')
         print('---------------------------------------------------------------------------')
@@ -149,10 +151,15 @@ def fit(dataset,input_size, hidden_size, num_layers, label_size, dropout,
             
             valid_accuracy.append(valid_acc)
 
-        max_valid_accuracy.append(max(valid_accuracy)) 
-        
-    return valid_loss_min, print(max_valid_accuracy)
+        max_valid_accuracy.append(max(valid_accuracy))
+        mean_valid_accuracy.append(mean(valid_accuracy)) 
 
+  
+    # return valid_loss_min, print(max_valid_accuracy)
+    return valid_loss_min, print("Max Accuracy: Fold_1:{}, Fold_2:{}, Fold_3:{}, Fold_4:{}, Fold_5:{}".format(max_valid_accuracy[0], 
+               max_valid_accuracy[1], max_valid_accuracy[2], max_valid_accuracy[3], max_valid_accuracy[4])), print("Mean Accuracy: Fold_1:{}, \
+               Fold_2:{}, Fold_3:{}, Fold_4:{}, Fold_5:{}".format(max_valid_accuracy[0], mean_valid_accuracy[1], mean_valid_accuracy[2], \
+                   mean_valid_accuracy[3], mean_valid_accuracy[4])) 
 
 # %%
 # SET MODEL HYPER-PARAMETERS
