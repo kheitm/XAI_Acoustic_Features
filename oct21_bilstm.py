@@ -6,6 +6,7 @@ from torch import Tensor
 import torch.nn as nn
 import numpy as np
 import json
+import optuna
 import torch.optim as optim
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, SubsetRandomSampler
@@ -51,6 +52,27 @@ def binary_accuracy(prediction, target):
     accuracy = correct.sum()/len(correct)
     return accuracy
 
+# class biLSTM(nn.Module):
+#     def __init__(self, input_size, hidden_size, num_layers, label_size, dropout):
+#         super(biLSTM, self).__init__()
+#         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, bidirectional=True)
+#         self.attn = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=1)
+#         self.relu = nn.ReLU()
+#         self.dropout = nn.Dropout(dropout)
+#         self.fc1 = nn.Linear(hidden_size, hidden_size)
+#         self.fc2 = nn.Linear(hidden_size, label_size)
+
+        
+#     def forward(self, x):
+#         out,(hidden,_) = self.lstm(x)
+#         out = self.attn(hidden)
+#         out = out.mean(dim=0)
+#         out = self.fc1(out)
+#         out = self.relu(out)
+#         out = self.dropout(out)
+#         out = self.fc2(out)
+#         out = self.relu(out)
+#         return out
 
 class biLSTM(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, label_size, dropout):
@@ -113,7 +135,7 @@ def fit(dataset,input_size, hidden_size, num_layers, label_size, dropout,
     mean_valid_accuracy =[]
     for fold, (train_ids, valid_ids) in enumerate(skf.split(dataset.data[1], dataset.data[0])):
         print(f'\n FOLD {fold + 1}')
-        print('---------------------------------------------------------------------------')
+        print('--------------------------------------------------------------------------------------------------')
         train_subsampler = SubsetRandomSampler(train_ids)
         valid_subsampler = SubsetRandomSampler(valid_ids)
         trainloader = DataLoader(dataset, batch_size=batch_size, sampler=train_subsampler)
@@ -151,33 +173,35 @@ def fit(dataset,input_size, hidden_size, num_layers, label_size, dropout,
             
             valid_accuracy.append(valid_acc)
 
-        max_valid_accuracy.append(max(valid_accuracy))
+        max_valid_accuracy.append(max(valid_accuracy)) 
         mean_valid_accuracy.append(mean(valid_accuracy)) 
 
   
     # return valid_loss_min, print(max_valid_accuracy)
-    return valid_loss_min, print("Max Accuracy: Fold_1:{}, Fold_2:{}, Fold_3:{}, Fold_4:{}, Fold_5:{}".format(max_valid_accuracy[0], 
-               max_valid_accuracy[1], max_valid_accuracy[2], max_valid_accuracy[3], max_valid_accuracy[4])), print("Mean Accuracy: Fold_1:{}, \
-               Fold_2:{}, Fold_3:{}, Fold_4:{}, Fold_5:{}".format(max_valid_accuracy[0], mean_valid_accuracy[1], mean_valid_accuracy[2], \
-                   mean_valid_accuracy[3], mean_valid_accuracy[4])) 
+    return valid_loss_min, print("\n\nMax Accuracy:\n Fold_1 = {:.2f}\n Fold_2 = {:.2f}\n Fold_3 = {:.2f}\n Fold_4 = {:.2f}\n Fold_5 = {:.2f}\n".format(max_valid_accuracy[0], 
+               max_valid_accuracy[1], max_valid_accuracy[2], max_valid_accuracy[3], max_valid_accuracy[4])), \
+               print("Mean Accuracy: \n Fold_1 = {:.2f}\n Fold_2 = {:.2f}\n Fold_3 = {:.2f}\n Fold_4 = {:.2f}\n Fold_5 = {:.2f}\n".format(max_valid_accuracy[0], \
+                   mean_valid_accuracy[1], mean_valid_accuracy[2], mean_valid_accuracy[3], mean_valid_accuracy[4])) 
+    # return valid_loss_min, print(max_valid_accuracy)
+
+
 
 # %%
 # SET MODEL HYPER-PARAMETERS
 torch.manual_seed(42)
 k_folds = 5
-# num_epochs = 300
-num_epochs = 2
+num_epochs = 3
 input_size = 25 # #number of features in input
 num_layers = 2
 hidden_size = 25 #number of features in hidden state
 label_size = 1
 learning_rate = 0.001
 batch_size = 128
-dropout = 0.5
+dropout = 0.2
 loss_fn = nn.BCEWithLogitsLoss()
 skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-filepath = '/Users/kathy-ann/ad.json'
+filepath = '/mount/arbeitsdaten/thesis-dp-1/heitmekn/working/ad.json'
 dataset = JSON_Dataset(filepath)
 fit(dataset,input_size, hidden_size, num_layers, label_size, dropout, 
         learning_rate, num_epochs,device, loss_fn, skf)
