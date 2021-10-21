@@ -6,7 +6,6 @@ from torch import Tensor
 import torch.nn as nn
 import numpy as np
 import json
-import optuna
 import torch.optim as optim
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, SubsetRandomSampler
@@ -51,28 +50,6 @@ def binary_accuracy(prediction, target):
     correct = (preds == target).float()
     accuracy = correct.sum()/len(correct)
     return accuracy
-
-# class biLSTM(nn.Module):
-#     def __init__(self, input_size, hidden_size, num_layers, label_size, dropout):
-#         super(biLSTM, self).__init__()
-#         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, bidirectional=True)
-#         self.attn = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=1)
-#         self.relu = nn.ReLU()
-#         self.dropout = nn.Dropout(dropout)
-#         self.fc1 = nn.Linear(hidden_size, hidden_size)
-#         self.fc2 = nn.Linear(hidden_size, label_size)
-
-        
-#     def forward(self, x):
-#         out,(hidden,_) = self.lstm(x)
-#         out = self.attn(hidden)
-#         out = out.mean(dim=0)
-#         out = self.fc1(out)
-#         out = self.relu(out)
-#         out = self.dropout(out)
-#         out = self.fc2(out)
-#         out = self.relu(out)
-#         return out
 
 class biLSTM(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, label_size, dropout):
@@ -173,8 +150,7 @@ def fit(dataset,input_size, hidden_size, num_layers, label_size, dropout,
         max_valid_accuracy.append(max(valid_accuracy)) 
         mean_valid_accuracy.append(mean(valid_accuracy)) 
 
-  
-    # return valid_loss_min, print(max_valid_accuracy)
+
     return valid_loss_min, print("\n\nMax Accuracy:\n Fold_1 = {:.2f}\n Fold_2 = {:.2f}\n Fold_3 = {:.2f}\n Fold_4 = {:.2f}\n Fold_5 = {:.2f}\n".format(max_valid_accuracy[0], 
                max_valid_accuracy[1], max_valid_accuracy[2], max_valid_accuracy[3], max_valid_accuracy[4])), \
                print("Mean Accuracy: \n Fold_1 = {:.2f}\n Fold_2 = {:.2f}\n Fold_3 = {:.2f}\n Fold_4 = {:.2f}\n Fold_5 = {:.2f}\n".format(max_valid_accuracy[0], \
