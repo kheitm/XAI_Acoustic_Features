@@ -1,12 +1,14 @@
 
 # %%
-# imported packages
+# optimising network
+
 import torch
 from torch import Tensor
 import torch.nn as nn
 import numpy as np
 import pandas as pd
 import json
+from datetime import datetime
 import optuna
 import torch.optim as optim
 from torch.nn import functional as F
@@ -14,13 +16,12 @@ from torch.utils.data import DataLoader, SubsetRandomSampler, random_split
 from sklearn.model_selection import StratifiedKFold
 from copy import deepcopy
 
-# %%
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 num_epochs = 300
 train_dataset = '/mount/arbeitsdaten/thesis-dp-1/heitmekn/working/train_ad.json'
 
-# %%
-# loaded dataset
+
 class AD_Dataset():
     def __init__(self, FilePath): 
         self.FilePath = FilePath 
@@ -41,7 +42,6 @@ class AD_Dataset():
     def __len__(self):
         return self.len #Setting length attribute
    
-# %%
 # called model Class and associated functions
 def load_data(filepath, batch_size):
     dataset = AD_Dataset(filepath)
@@ -84,16 +84,22 @@ class ShallowCNN(nn.Module):
         x = self.sigmoid(x)
         return x
 
-# %%
+
 def objective(trial):
 
     # Generate the model.
     model = ShallowCNN(trial).to(device)
+
     optimizer_name = trial.suggest_categorical("optimizer", ["RMSprop", "SGD"])
     momentum = trial.suggest_float("momentum", 0.0, 1.0)
     lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
     optimizer = getattr(optim, optimizer_name)(model.parameters(), lr=lr,momentum=momentum)
-    batch_size = trial.suggest_int("batch_size",32,128, step=32)
+    batch_size = trial.suggest_int("batch_size",16,128, step=16)
+
+    # optimizer_name = trial.suggest_categorical("optimizer", ["Adam", "Adadelta","Adagrad"])
+    # lr = trial.suggest_float("lr", 1e-5, 1e-1,log=True)
+    # optimizer = getattr(optim, optimizer_name)(model.parameters(), lr=lr)
+    # batch_size=trial.suggest_int("batch_size", 16, 128,step=16)
 
     loss_fn = nn.BCELoss()
     trainloader, validloader = load_data(train_dataset, batch_size=batch_size)
@@ -125,7 +131,7 @@ def objective(trial):
                     valid_acc += acc.item()
         
         # final_loss = valid_loss/len(validloader.dataset)
-        accuracy = valid_acc/len(validloader.dataset)
+        accuracy = valid_acc/len(validloader)
         trial.report(accuracy, epoch)
 
                 # Handle pruning based on the intermediate value.
@@ -134,12 +140,20 @@ def objective(trial):
 
     return accuracy
 
-# %%
 
 study = optuna.create_study(direction='maximize')
-study.optimize(objective, n_trials=5)
+study.optimize(objective, n_trials=500)
 
 trial = study.best_trial
 
 print('Accuracy: {}'.format(trial.value))
 print("Best hyperparameters: {}".format(trial.params))
+
+df = study.trials_dataframe().drop(['state','datetime_start','datetime_complete','duration','number'], axis=1)
+path = "/mount/arbeitsdaten/thesis-dp-1/heitmekn/working/saved_trials/cnn_{}"
+path = path.format(datetime.now().replace(microsecond=0).isoformat())
+df.to_csv(path + ".csv")
+
+# %%
+df
+# %%
