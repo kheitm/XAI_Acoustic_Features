@@ -4,6 +4,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import pandas as pd
 import json
 import torch.optim as optim
 from torch.utils.data import DataLoader
@@ -121,11 +122,21 @@ print(classification_report(y_target_list, y_pred_list))
 
 # %%
 # Save metrics 
+df = pd.read_csv('/mount/arbeitsdaten/thesis-dp-1/heitmekn/working/params.csv')
+name = 'cnn-optimised-exp7-74.27'
+filtered = df[df['Model_Name'] == name].values.tolist()
+lst = filtered[0][1:]
 
 original_stdout = sys.stdout 
-with open(f'{path_root}/reports/{model_name}.txt', 'w') as f:
+with open(f'{path_root}/metrics/{model_name}.txt', 'w') as f:
     sys.stdout = f # Change the standard output to the file we created.
     print("Model name: ", model_name)
+    print(f"Optuna Value: {lst[0]}")
+    print(f"Batch Size: {lst[1]}")
+    print(f"Dropout: {lst[2]}")
+    print(f"Learning Rate: {lst[3]}")
+    print(f"Momentum: {lst[4]}")
+    print(f"Optimiser: {lst[5]}")
     print(os.linesep)
     print("Confusion Matrix: ")
     print(confusion_matrix(y_target_list, y_pred_list))
@@ -133,5 +144,4 @@ with open(f'{path_root}/reports/{model_name}.txt', 'w') as f:
     print("Classification Report: ")
     print(classification_report(y_target_list, y_pred_list))
     sys.stdout = original_stdout
-
 
