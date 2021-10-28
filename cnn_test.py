@@ -8,6 +8,7 @@ import json
 import torch.optim as optim
 from torch.utils.data import DataLoader
 import os
+import sys
 from sklearn.metrics import confusion_matrix, classification_report
 
 
@@ -103,15 +104,34 @@ model = ShallowCNN().to(device)
 
 # %%
 # load model
-model.load_state_dict(torch.load(f"{path_root}/best_models/cnn-optimised-exp7-74.27.pt"))
+model_path = f"{path_root}/best_models/cnn-optimised-exp7-74.27.pt"
+base = os.path.basename(model_path)
+os.path.splitext(base)
+model_name = os.path.splitext(base)[0]
+model.load_state_dict(torch.load(model_path))
+y_target_list, y_pred_list = evaluate(model, testloader, device)
+
+
 # %%
 #test model
-y_target_list, y_pred_list = evaluate(model, testloader, device)
+
+print(model_name)
 print(confusion_matrix(y_target_list, y_pred_list))
 print(classification_report(y_target_list, y_pred_list))
-            
-
 
 # %%
+# Save metrics 
 
-# %%
+original_stdout = sys.stdout 
+with open(f'{path_root}/reports/{model_name}.txt', 'w') as f:
+    sys.stdout = f # Change the standard output to the file we created.
+    print("Model name: ", model_name)
+    print(os.linesep)
+    print("Confusion Matrix: ")
+    print(confusion_matrix(y_target_list, y_pred_list))
+    print(os.linesep)
+    print("Classification Report: ")
+    print(classification_report(y_target_list, y_pred_list))
+    sys.stdout = original_stdout
+
+
