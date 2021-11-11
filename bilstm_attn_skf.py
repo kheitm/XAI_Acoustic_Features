@@ -52,11 +52,11 @@ def binary_accuracy(prediction, target):
     return accuracy
 
 class biLSTM(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, label_size, dropout):
+    def __init__(self, input_size, hidden_size, num_layers, label_size):
         super(biLSTM, self).__init__()
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, bidirectional=True, dropout=0.3)
-        self.attn = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=1)
-        #self.attn = nn.MultiheadAttention(25, 1)
+        #self.attn = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=1)
+        self.attn = nn.MultiheadAttention(25, 1)
         self.relu = nn.ReLU()
         self.fc1 = nn.Linear(hidden_size, hidden_size)
         self.fc2 = nn.Linear(hidden_size, label_size)
