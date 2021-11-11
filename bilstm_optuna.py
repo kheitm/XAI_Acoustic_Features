@@ -69,6 +69,7 @@ class biLSTM(nn.Module):
         super(biLSTM, self).__init__()
         self.lstm = nn.LSTM(25, 25, num_layers=2, batch_first=True, bidirectional=True)
         self.attn = nn.TransformerEncoderLayer(d_model=25, nhead=1)
+        #self.attn = nn.MultiheadAttention(25, 1)
         self.relu = nn.ReLU()
         dropout_rate = trial.suggest_float("dropout_rate", 0, 0.7,step=0.1)
         self.dropout = nn.Dropout(p=dropout_rate)
@@ -85,9 +86,9 @@ class biLSTM(nn.Module):
         out = self.fc2(out)
         return out
 
-class biLSTM_Too(nn.Module):
+class biLSTM(nn.Module):
     def __init__(self, trial):
-        super(biLSTM_Too, self).__init__()
+        super(biLSTM, self).__init__()
         self.lstm = nn.LSTM(25, 25, num_layers=2, batch_first=True, bidirectional=True)
         self.attn = nn.TransformerEncoderLayer(d_model=25, nhead=1)
         self.relu = nn.ReLU()
@@ -110,8 +111,8 @@ class biLSTM_Too(nn.Module):
 def objective(trial):
 
     # Generate the model.
-    # model = biLSTM(trial).to(device)
-    model = biLSTM_Too(trial).to(device)
+
+    model = biLSTM(trial).to(device)
 
     # optimizer_name = trial.suggest_categorical("optimizer", ["RMSprop", "SGD"])
     # momentum = trial.suggest_float("momentum", 0.0, 1.0)
@@ -123,7 +124,7 @@ def objective(trial):
     lr = trial.suggest_float("lr", 1e-5, 1e-1,log=True)
     optimizer = getattr(optim, optimizer_name)(model.parameters(), lr=lr)
     batch_size =trial.suggest_int("batch_size", 16, 256,step=16)
-    # dropout_rate = trial.suggest_float("dropout_rate", 0, 0.7,step=0.1)
+
 
     loss_fn = nn.BCEWithLogitsLoss()
     trainloader, validloader = load_data(train_dataset, batch_size=batch_size)
@@ -158,7 +159,7 @@ def objective(trial):
         accuracy = valid_acc/len(validloader)
         trial.report(accuracy, epoch)
 
-                # Handle pruning based on the intermediate value.
+        # Handle pruning based on the intermediate value.
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
 
@@ -174,7 +175,7 @@ print('Accuracy: {}'.format(trial.value))
 print("Best hyperparameters: {}".format(trial.params))
 
 df = study.trials_dataframe().drop(['state','datetime_start','datetime_complete','duration','number'], axis=1)
-path = "/mount/arbeitsdaten/thesis-dp-1/heitmekn/working/saved_trials/lstm_too{}"
+path = "/mount/arbeitsdaten/thesis-dp-1/heitmekn/working/saved_trials/bilstm_{}"
 path = path.format(datetime.now().replace(microsecond=0).isoformat())
 df.to_csv(path + ".csv")
 

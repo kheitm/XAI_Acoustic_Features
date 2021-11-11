@@ -56,6 +56,7 @@ class biLSTM(nn.Module):
         super(biLSTM, self).__init__()
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, bidirectional=True, dropout=0.3)
         self.attn = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=1)
+        #self.attn = nn.MultiheadAttention(25, 1)
         self.relu = nn.ReLU()
         self.fc1 = nn.Linear(hidden_size, hidden_size)
         self.fc2 = nn.Linear(hidden_size, label_size)
@@ -135,7 +136,7 @@ def fit(dataset,input_size, hidden_size, num_layers, label_size, dropout,
                 valid_loss_min = valid_loss
                 best_model_state = deepcopy(model.state_dict())
                 torch.save(best_model_state, f'./saved_models/model-fold-{fold +1}.pth')
-                # torch.save(model.state_dict(), f'./saved_models/model-fold-{fold +1}.pth')
+                
             else:
                 early_stopping_counter += 1
 
