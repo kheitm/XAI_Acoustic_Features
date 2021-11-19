@@ -3,23 +3,44 @@
 # imported packages
 import torch
 from torch import Tensor
-from torch._C import clear_autocast_cache
 import torch.nn as nn
 import numpy as np
 import pandas as pd
 import json
-import optuna
+import argparse
+import copy
 import torch.optim as optim
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, SubsetRandomSampler, random_split
-from sklearn.model_selection import StratifiedKFold
 from copy import deepcopy
 
-
-
 # %%
-# Prepared DATASET
-
+parser = argparse.ArgumentParser()
+parser.add_argument("--bs",
+                    default=264,
+                    type=int,
+                    help="Number of training samples per batch.")
+parser.add_argument("--lr",
+                    default=1e-3,
+                    type=float,
+                    help="Learning rate for optimizer.")
+parser.add_argument("--mom",
+                    default=0.9,
+                    type=float,
+                    help="Momentum for optimizer.")
+parser.add_argument("--opt",
+                    type=str,
+                    help="Type of optimizer.")
+parser.add_argument("--dr",
+                    default=0.3,
+                    type=float,
+                    help="Dropout rate.")          
+parser.add_argument("--exp",
+                    type=str,
+                    help="Experiment number.")
+args = parser.parse_args()
+# %%
+# loaded dataset
 class AD_Dataset():
     def __init__(self, FilePath): 
         self.FilePath = FilePath 
@@ -51,117 +72,127 @@ def load_data(filepath, batch_size):
     validloader = torch.utils.data.DataLoader(val_data, batch_size = batch_size, shuffle = True) #Passing the trainset into a Dataloader
     return trainloader, validloader
 
-def reset_weights(model):
-    if isinstance(model, nn.LSTM) or isinstance(model, nn.Linear):
-        model.reset_parameters()
 
-def binary_accuracy(prediction, target):
-    preds = torch.round(prediction) # round to the nearest integer
+# Compute the accuracy based on two-node-output
+def binary_accuracy_softmax(prediction, target):
+    preds = torch.argmax(torch.softmax(prediction, dim=1), dim=1)
     correct = (preds == target).float()
     accuracy = correct.sum()/len(correct)
     return accuracy
 
-  
 
 class biLSTM(nn.Module):
     def __init__(self):
         super(biLSTM, self).__init__()
-        self.lstm = nn.LSTM(25, 25, num_layers=2, batch_first=True, bidirectional=True)
-        self.attn = nn.MultiheadAttention(25, 1)
+        self.lstm = nn.LSTM(25, 25, num_layers=2, batch_first=True, bidirectional=True, dropout=args.dr)
+        self.attn = nn.TransformerEncoderLayer(d_model=25, nhead=1)
         self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(p=0.3)
         self.fc1 = nn.Linear(25, 25)
-        self.fc2 = nn.Linear(25, 1)
+        self.fc2 = nn.Linear(25, 2) 
 
         
     def forward(self, x):
         out,(hidden,_) = self.lstm(x)
-        context, weights = self.attn(hidden, hidden, hidden)
-        out = context[-1, :, :]
+        out = self.attn(hidden)
+        out = out[-1, :, :]
         out = self.fc1(out)
         out = self.relu(out)
-        # out = self.fc2(out)[-1]
         out = self.fc2(out)
         return out
 
 # %%
 def train_epoch(model,device, trainloader, loss_fn, optimizer):
-    train_loss, train_acc = 0, 0
+    train_loss, train_acc = 0.0, 0
     model.train()
     for inputs, targets in trainloader:
-        inputs, targets = inputs.to(device, dtype=torch.float), targets.to(device, dtype=torch.float)
-        targets = targets.unsqueeze(1)
+        inputs, targets = inputs.to(device, dtype=torch.float), targets.to(device, dtype=torch.long)
         optimizer.zero_grad()
         prediction = model(inputs)
         loss = loss_fn(prediction, targets)
-        accuracy = binary_accuracy(prediction, targets)
+        accuracy = binary_accuracy_softmax(prediction, targets)
         loss.backward()
         optimizer.step()
-        train_loss += loss.item()
+        train_loss += loss.item() 
         train_acc += accuracy.item()
-    return train_loss/len(trainloader), train_acc/len(trainloader)*100
+    return train_loss/len(trainloader), train_acc/len(trainloader) * 100
 
 def valid_epoch(model, device, validloader, loss_fn):
-    valid_loss, valid_acc = 0, 0
+    valid_loss, valid_acc = 0.0, 0
     model.eval()
     with torch.no_grad():
       for inputs, targets in validloader:
-            inputs, targets = inputs.to(device, dtype=torch.float), targets.to(device, dtype=torch.float)
-            targets = targets.unsqueeze(1)
+            inputs, targets = inputs.to(device, dtype=torch.float), targets.to(device, dtype=torch.long)
             prediction = model(inputs)
             loss = loss_fn(prediction, targets)
-            accuracy =  binary_accuracy(prediction, targets) 
-            valid_loss += loss.item()
+            accuracy =  binary_accuracy_softmax(prediction, targets) 
+            valid_loss += loss.item() * inputs.size(0) # running loss
             valid_acc += accuracy.item()
-      return valid_loss/len(validloader), valid_acc/len(validloader)*100
+      return valid_loss/len(validloader), valid_acc/len(validloader) * 100
 
 # %%
 # FIT MODEL
 
-def fit(trainloader, validloader, learning_rate, num_epochs,device, loss_fn):
+def fit(trainloader, validloader, num_epochs, device, loss_fn):
     
         model = biLSTM().to(device)
-        model = model.float()
-        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-        valid_loss_min = np.Inf 
-        early_stopping_iter = 1000
-        early_stopping_counter = 0
+        if args.opt == 'sgd':
+            optimizer = torch.optim.SGD(model.parameters(),lr=args.lr, momentum=args.mom)
+        
+        elif args.opt == 'rms':
+            optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr, momentum=args.mom)
+
+        elif args.opt == 'adam':
+            optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+        
+        elif args.opt == 'adagrad':
+            optimizer = torch.optim.Adagrad(model.parameters(), lr=args.lr)
+
+
+        es_min_valid_loss = np.Inf 
+        es_counter = 0
+        es_patience = 10
+        best_model_state = copy.deepcopy(model.state_dict())
+        best_acc = 0.0
 
 
         for epoch in range(num_epochs):
+            print('-' * 100)
             print(f'Starting epoch {epoch+1}')
+            
+            epoch_train_loss, epoch_train_acc = train_epoch(model, device, trainloader,loss_fn, optimizer)
+            epoch_valid_loss, epoch_valid_acc = valid_epoch(model, device, validloader, loss_fn) 
 
-            train_loss, train_acc = train_epoch(model, device, trainloader,loss_fn, optimizer)
-            valid_loss, valid_acc = valid_epoch(model, device, validloader, loss_fn) 
+            if epoch_valid_acc > best_acc:
+                best_acc = epoch_valid_acc
+                best_model_state = copy.deepcopy(model.state_dict())
+                # torch.save(best_model_state, f'./saved_models/bilstm-expTESTPARSE-{epoch_valid_acc:.2f}.pt')
+                torch.save(best_model_state, f'./saved_models/bilstm-{args.exp}-{epoch_valid_acc:.2f}.pt')
 
-            if  valid_loss < valid_loss_min:
-                valid_loss_min = valid_loss
-                best_model_state = deepcopy(model.state_dict())
-                torch.save(best_model_state, f'./saved_models/model-acc{valid_acc:.2f}.pt')
+            if  epoch_valid_loss < es_min_valid_loss:
+                es_min_valid_loss = epoch_valid_loss
+                es_counter = 0
             else:
-                early_stopping_counter += 1
+                es_counter += 1
+            
 
-            if early_stopping_counter > early_stopping_iter:  
+            if es_counter >= es_patience:  # if not improving for n iterations then stop
+                print(f'Early stopping at epoch {epoch+1}!')
                 break
 
-            print("Epoch:{}/{} Training Loss:{:.3f}  Validation Loss:{:.3f} Training Accuracy {:.2f}% Validation Accuracy {:.2f}%".format(epoch + 1, num_epochs, train_loss, valid_loss, \
-                train_acc, valid_acc))
-            
+            print("Epoch:{}/{} Training Loss {:.3f} Training Accuracy {:.3f} Validation Loss:{:.3f} Validation Accuracy {:.3f}".format(epoch + 1, num_epochs, epoch_train_loss, \
+                epoch_train_acc, epoch_valid_loss, epoch_valid_acc))
+
         return 
 
 
-
-
 # %%
-# SET MODEL HYPER-PARAMETERS
+# Initiate training
 torch.manual_seed(42)
-num_epochs = 300
-learning_rate = 0.001
-batch_size = 16
-loss_fn = nn.BCEWithLogitsLoss()
+num_epochs = 50
+loss_fn = nn.CrossEntropyLoss()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 train_dataset = '/mount/arbeitsdaten/thesis-dp-1/heitmekn/working/train_ad.json'
-trainloader, validloader = load_data(train_dataset, batch_size=batch_size) 
-fit(trainloader, validloader, learning_rate, num_epochs, device, loss_fn)
+trainloader, validloader = load_data(train_dataset, batch_size=args.bs) # get train_loader
+fit(trainloader, validloader, num_epochs, device, loss_fn)
 
