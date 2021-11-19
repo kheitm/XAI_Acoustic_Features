@@ -42,6 +42,12 @@ def load_data(filepath, batch_size):
     testloader = torch.utils.data.DataLoader(testdata, batch_size = batch_size, shuffle = True) 
     return testloader
 
+path_root = f"{os.getcwd()}"
+batch_size = 146
+filepath = f"{path_root}/test_ad.json"
+testloader = load_data(filepath, batch_size=batch_size)
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 # %%
 # 2. Called model Class and associated functions
 
@@ -91,16 +97,9 @@ def evaluate(model, testloader, device):
 
 
 # %%
-# 3. FIT MODEL
-path_root = f"{os.getcwd()}"
-batch_size = 160
-filepath = f"{path_root}/test_ad.json"
-testloader = load_data(filepath, batch_size=batch_size)
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model = biLSTM().to(device)
+# 3. Generate metrics and plots
 
-# %%
-# 4. Evaluate on Test data and create metrics/plots
+model = biLSTM().to(device)
 model_directory = r'/mount/arbeitsdaten/thesis-dp-1/heitmekn/working/testmodels'
 for entry in os.scandir(model_directory):
     model_path = entry.path
@@ -108,22 +107,26 @@ for entry in os.scandir(model_directory):
     os.path.splitext(base)
     model_name = os.path.splitext(base)[0]
     model.load_state_dict(torch.load(model_path))
+
+    # genearte predictiona and target lists
     y_target_list, y_pred_list = evaluate(model, testloader, device)
     cfm = confusion_matrix(y_target_list, y_pred_list)
+
+    # extract params for model
     df = pd.read_csv(f"{path_root}/params.csv")
     filtered = df[df['Model_Name'] == model_name].values.tolist()
-    lst = filtered[0][1:]
+    param_lst = filtered[0][1:]
 
     # print metrics
     original_stdout = sys.stdout 
-    with open(f'{path_root}/metrics/{model_name}.txt', 'w') as f:
+    with open(f'{path_root}/figs2/{model_name}.txt', 'w') as f:
         sys.stdout = f # Change the standard output to the file we created.
         print("Model name: ", model_name)
-        print(f"Batch Size: {lst[0]}")
-        print(f"Dropout: {lst[1]}")
-        print(f"Learning Rate: {lst[2]}")
-        print(f"Momentum: {lst[3]}")
-        print(f"Optimiser: {lst[4]}")
+        print(f"Batch Size: {param_lst[0]}")
+        print(f"Dropout: {param_lst[1]}")
+        print(f"Learning Rate: {param_lst[2]}")
+        print(f"Momentum: {param_lst[3]}")
+        print(f"Optimiser: {param_lst[4]}")
         print(os.linesep)
         print("Confusion Matrix: ")
         print(cfm)
@@ -142,7 +145,5 @@ for entry in os.scandir(model_directory):
         ax.xaxis.set_label_position('top')
         plt.ylabel('Actual Label')
         plt.xlabel('Predicted Label')
-        ax.figure.savefig(f'{path_root}/figures/{model_name}_cfm.png')
+        ax.figure.savefig(f'{path_root}/figs2/{model_name}_cfm.png')
 
-
-# %%
