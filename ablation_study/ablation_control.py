@@ -118,10 +118,8 @@ def valid_epoch(model, device, validloader, loss_fn):
 def fit(trainloader, validloader, num_epochs, device, loss_fn):
     
         model = CNN().to(device)
-
         optimizer = torch.optim.Adagrad(model.parameters(), lr=lr)
         
-
         es_min_valid_loss = np.Inf 
         es_counter = 0
         es_patience = 10
