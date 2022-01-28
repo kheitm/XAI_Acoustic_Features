@@ -39,9 +39,9 @@ class AD_Dataset():
         return Xi, Yi 
 
     def __len__(self):
-        return self.len #Setting length attribute
+        return self.len 
    
-# called model Class and associated functions
+# Call model Class and associated functions
 def load_data(filepath, batch_size):
     dataset = AD_Dataset(filepath)
     train_size = int(len(dataset) * 0.7)
@@ -56,12 +56,11 @@ def reset_weights(model):
         model.reset_parameters()
 
 def binary_accuracy(prediction, target):
-    preds = torch.round(prediction) # round to the nearest integer
+    preds = torch.round(prediction) 
     correct = (preds == target).float()
     accuracy = correct.sum()/len(correct)
     return accuracy
 
-# a new function to compute the accuracy based on two-node-output
 def binary_accuracy_softmax(prediction, target):
     preds = torch.argmax(torch.softmax(prediction, dim=1), dim=1)
     correct = (preds == target).float()
@@ -78,8 +77,7 @@ class biLSTM(nn.Module):
         dropout_rate = trial.suggest_float("dropout_rate", 0, 0.7,step=0.1)
         self.dropout = nn.Dropout(p=dropout_rate)
         self.fc1 = nn.Linear(25, 25)
-        self.fc2 = nn.Linear(25, 2) # changed output to two nodes
-
+        self.fc2 = nn.Linear(25, 2) 
         
     def forward(self, x):
         out,(hidden,_) = self.lstm(x)
@@ -96,6 +94,7 @@ def objective(trial):
 
     model = biLSTM(trial).to(device)
 
+    # Alternative hyperparameters
     # optimizer_name = trial.suggest_categorical("optimizer", ["RMSprop", "SGD"])
     # momentum = trial.suggest_float("momentum", 0.0, 1.0)
     # lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
@@ -108,13 +107,13 @@ def objective(trial):
     batch_size =trial.suggest_int("batch_size", 16, 256,step=16)
 
 
-    loss_fn = nn.CrossEntropyLoss() # We now use the normal Cross Entropy loss which includes softmax
+    loss_fn = nn.CrossEntropyLoss() 
     trainloader, validloader = load_data(train_dataset, batch_size=batch_size)
 
 	 # variables for early stopping
-    es_min_valid_loss = np.inf  # this is our starting point as "previous minimum loss", we want to be lower than this
-    es_counter = 0  # counter for number of epochs we are above the previous minimum loss in a row
-    es_patience = 5  # number of epochs to wait; if we are es_patience epochs in a row above es_min_valid_loss, we will stop the training. This is a hyperparameter!
+    es_min_valid_loss = np.inf  
+    es_counter = 0  
+    es_patience = 5  
 
     # training of the model
     for epoch in range(num_epochs):
