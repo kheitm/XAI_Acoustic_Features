@@ -6,7 +6,7 @@ import opensmile
 def extract_egemaps(wav_file):
     audio, sr = librosa.load(wav_file) 
     smile = opensmile.Smile(feature_set=opensmile.FeatureSet.eGeMAPSv02,
-        num_channels=1, feature_level=opensmile.FeatureLevel.LowLevelDescriptors,)
+        num_channels=1, feature_level=opensmile.FeatureLevel.Functionals,)
     row_data = smile.process_signal(audio, sr) # <class 'pandas.core.frame.DataFrame'
     return row_data
 
@@ -23,7 +23,7 @@ def egemaps_dataset(fname):
              print("An I/O error or a ValueError occurred with file {}".format(wav_file))
 
     dataset = pd.DataFrame(features, columns=['label', 'mmse', 'functionals']) 
-    dataset.to_json('/Users/kathy-ann/thesis/lld_feats.json', orient="values")
+    dataset.to_json('/Users/kathy-ann/thesis/funcs_feats.json', orient="values")
 
     return dataset
 
