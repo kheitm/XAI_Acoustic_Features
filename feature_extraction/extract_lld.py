@@ -27,5 +27,5 @@ def egemaps_dataset(fname):
 
     return dataset
 
-fname = '/Users/kathy-ann/thesis/data.tsv'
+fname = '.../data.tsv'
 egemaps_dataset(fname)
