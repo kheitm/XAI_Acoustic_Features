@@ -1,6 +1,4 @@
 
-# %%
-# imported packages
 import torch
 from torch import Tensor
 import torch.nn as nn
@@ -14,7 +12,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader, SubsetRandomSampler, random_split
 from copy import deepcopy
 
-# %%
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--feats",
                     type=int,
@@ -23,7 +21,8 @@ parser.add_argument("--exp",
                     type=str,
                     help="Experiment number.")
 args = parser.parse_args()
-# %%
+
+
 # loaded dataset
 class AD_Dataset():
     def __init__(self, FilePath): 
@@ -44,9 +43,9 @@ class AD_Dataset():
         return Xi, Yi 
 
     def __len__(self):
-        return self.len #Setting length attribute
+        return self.len 
    
-# %%
+
 # called model Class and associated functions
 def load_data(filepath, batch_size):
     dataset = AD_Dataset(filepath)
@@ -54,7 +53,7 @@ def load_data(filepath, batch_size):
     valid_size = len(dataset) - train_size
     train_data, val_data = random_split(dataset, [train_size, valid_size])
     trainloader = torch.utils.data.DataLoader(train_data, batch_size = batch_size, shuffle = True)
-    validloader = torch.utils.data.DataLoader(val_data, batch_size = batch_size, shuffle = True) #Passing the trainset into a Dataloader
+    validloader = torch.utils.data.DataLoader(val_data, batch_size = batch_size, shuffle = True) 
     return trainloader, validloader
 
 
@@ -114,7 +113,7 @@ def valid_epoch(model, device, validloader, loss_fn):
             valid_acc += accuracy.item()
       return valid_loss/len(validloader), valid_acc/len(validloader) * 100
 
-# %%
+
 # FIT MODEL
 
 def fit(trainloader, validloader, num_epochs, device, loss_fn):
@@ -160,7 +159,7 @@ def fit(trainloader, validloader, num_epochs, device, loss_fn):
         return 
 
 
-# %%
+
 # Initiate training
 torch.manual_seed(42)
 num_epochs = 50
@@ -168,7 +167,7 @@ batch_size = 80
 lr = 0.009992
 loss_fn = nn.CrossEntropyLoss()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-train_dataset = '/mount/arbeitsdaten/thesis-dp-1/heitmekn/working/train_ad.json'
-trainloader, validloader = load_data(train_dataset, batch_size=batch_size) # get train_loader
+train_dataset = '.../train_ad.json'
+trainloader, validloader = load_data(train_dataset, batch_size=batch_size) 
 fit(trainloader, validloader, num_epochs, device, loss_fn)
 
