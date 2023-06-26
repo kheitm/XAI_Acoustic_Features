@@ -156,7 +156,7 @@ learning_rate = 0.000100
 batch_size = 160
 loss_fn = nn.BCELoss()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-train_dataset = '/mount/arbeitsdaten/thesis-dp-1/heitmekn/working/train_ad.json'
+train_dataset = '.../train_ad.json'
 trainloader, validloader = load_data(train_dataset, batch_size=batch_size) # get train_loader
 fit(trainloader, validloader, learning_rate, num_epochs, device, loss_fn)
 
