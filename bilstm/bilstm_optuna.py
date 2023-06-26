@@ -17,8 +17,8 @@ from copy import deepcopy
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-num_epochs = 30  # smaller batch size than 300
-train_dataset = '/mount/arbeitsdaten/thesis-dp-1/heitmekn/working/train_ad.json'
+num_epochs = 30  
+train_dataset = '.../train_ad.json'
 
 
 class AD_Dataset():
@@ -174,7 +174,7 @@ print('Accuracy: {}'.format(trial.value))
 print("Best hyperparameters: {}".format(trial.params))
 
 df = study.trials_dataframe().drop(['state','datetime_start','datetime_complete','duration','number'], axis=1)
-path = "/mount/arbeitsdaten/thesis-dp-1/heitmekn/working/saved_trials/bilstm_{}"
+path = ".../saved_trials/bilstm_{}"
 path = path.format(datetime.now().replace(microsecond=0).isoformat())
 df.to_csv(path + ".csv")
 
