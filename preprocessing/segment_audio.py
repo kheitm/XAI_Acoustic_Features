@@ -10,12 +10,12 @@ def segment_audio(file_name, target_directory):
     chunk_length_ms = 10000 # pydub calculates in millisec 
     chunks = make_chunks(myaudio,chunk_length_ms) #Make chunks of 10 sec 
     for i, chunk in enumerate(chunks): 
-        # chunk_name = '/Users/kathy-ann/thesis/chunked/' + file_name + "chunk{0}.wav".format(i) 
+        # chunk_name = '.../chunked/' + file_name + "chunk{0}.wav".format(i) 
         chunk_name = target_directory + file_name + "chunk{0}.wav".format(i)
         print ("exporting", chunk_name) 
         chunk.export(chunk_name, format="wav") 
 
-# os.makedirs('/Users/kathy-ann/thesis/chunked')
+# os.makedirs('.../chunked')
 def segment_wav_directory(source_directory, target_directory):
     all_file_names = os.listdir(source_directory)
     for file_name in all_file_names:
