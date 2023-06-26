@@ -17,8 +17,8 @@ def remove_short_files(source_directory, target_directory):
                 shutil.move(os.path.join(source_directory, file_name), target_directory)
 
                 
-source_directory = '/Users/kathy-ann/thesis/chunked/'
-target_directory = '/Users/kathy-ann/thesis/short_files/'
+source_directory = '.../chunked/'
+target_directory = '.../short_files/'
 remove_short_files(source_directory, target_directory)
 
 # %%
