@@ -36,8 +36,8 @@ def make_data_file(cgroup, dgroup, dir, output):
     return
 
 
-cgroup = '/Users/kathy-ann/thesis/train/cc_meta_data.txt'
-dgroup = '/Users/kathy-ann/thesis/train/cd_meta_data.txt'
-dir = '/Users/kathy-ann/thesis/chunked/'
-output = '/Users/kathy-ann/thesis/data2.tsv'
+cgroup = '.../train/cc_meta_data.txt'
+dgroup = '.../train/cd_meta_data.txt'
+dir = '.../chunked/'
+output = '.../data2.tsv'
 make_data_file(cgroup, dgroup, dir, output)
