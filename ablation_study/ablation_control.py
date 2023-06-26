@@ -164,7 +164,7 @@ batch_size = 160
 lr = 0.002374
 loss_fn = nn.CrossEntropyLoss()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-train_dataset = '/mount/arbeitsdaten/thesis-dp-1/heitmekn/working/train_ad.json'
-trainloader, validloader = load_data(train_dataset, batch_size=batch_size) # get train_loader
+train_dataset = '.../train_ad.json'
+trainloader, validloader = load_data(train_dataset, batch_size=batch_size) 
 fit(trainloader, validloader, num_epochs, device, loss_fn)
 
