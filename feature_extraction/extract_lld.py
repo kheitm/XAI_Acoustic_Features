@@ -23,7 +23,7 @@ def egemaps_dataset(fname):
              print("An I/O error or a ValueError occurred with file {}".format(wav_file))
 
     dataset = pd.DataFrame(features, columns=['label', 'mmse', 'functionals']) 
-    dataset.to_json('/Users/kathy-ann/thesis/lld_feats.json', orient="values")
+    dataset.to_json('.../lld_feats.json', orient="values")
 
     return dataset
 
