@@ -192,7 +192,7 @@ torch.manual_seed(42)
 num_epochs = 50
 loss_fn = nn.CrossEntropyLoss()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-train_dataset = '/mount/arbeitsdaten/thesis-dp-1/heitmekn/working/train_ad.json'
+train_dataset = '.../train_ad.json'
 trainloader, validloader = load_data(train_dataset, batch_size=args.bs) # get train_loader
 fit(trainloader, validloader, num_epochs, device, loss_fn)
 
