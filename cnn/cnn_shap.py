@@ -128,18 +128,17 @@ plt.figure()
 shap.summary_plot(shap_values, test_samples_arr, show=False, plot_type="bar", max_display=25 )
 plt.savefig(f'{path_root}/figures/{model_name}_shap_bar_plot.png')
 plt.close()
+
+
 # %%
 # Produce partial dependence plot
 # Shows marginal effect one or two features have on the predicted outcome
-# https://towardsdatascience.com/explain-your-model-with-the-shap-values-bc36aac4de3d
-# https://www.kaggle.com/dansbecker/advanced-uses-of-shap-values
-# https://towardsdatascience.com/explain-any-models-with-the-shap-values-use-the-kernelexplainer-79de9464897a
 shap.dependence_plot("Feature 2", shap_values, test_samples_arr)
+
+
 # %%
 # Individual Value plot : Local interpretability
-import pandas as pd
 shap.initjs()
-
 test_samples_arr = pd.DataFrame(test_samples_arr)
 shap.force_plot(e.expected_value, shap_values[10], test_samples_arr .iloc[10,:])
 
@@ -150,7 +149,4 @@ test_samples_arr = pd.DataFrame(test_samples_arr)
 shap.force_plot(e.expected_value, shap_values[10], test_samples_arr .iloc[10,:], matplotlib=True, show=False)
 plt.savefig(f'{path_root}/shap_force_plot.svg')
 plt.close()
-# %%
-# You can also make a summary plot with only one feature for a quick result: shap.summary_plot(shap_values[0:1,:], X.iloc[0:1,:], color_bar=False)
 
-# https://medium.com/dataman-in-ai/the-shap-with-more-elegant-charts-bc3e73fa1c0c
